@@ -35,14 +35,13 @@ This application provides **rate limiting for selected API endpoints** using Red
 ## 📁 Project Structure
 
 ```
-RateLimit/
+RateLimiterRedisApp/
 ├── pom.xml
 ├── README.md
 └── src/
     └── main/
         ├── java/com/nagam/example/ratelimiter/
         │   ├── Application.java
-        │   ├── config/
         │   ├── controller/HelloController.java
         │   ├── filter/RateLimitFilter.java
         │   ├── limiter/RedisRateLimiter.java
@@ -70,6 +69,8 @@ When limit is exceeded:
 }
 ```
 
+---
+
 ## 🚀 Running the Application
 
 ### 1. Start Redis
@@ -85,17 +86,55 @@ mvn clean install
 mvn spring-boot:run
 ```
 
-### 3. Test the Rate Limiting
+---
 
-Send 60 requests to `/hello`:
+## 🧪 How to Test the Rate Limiting
+
+### ✅ Test `/hello` (Rate Limited)
 
 ```bash
-for i in {1..60}; do curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8080/hello; done
+for i in {1..60}; do
+  curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8080/hello
+done
 ```
 
-Expected:
-- First 50 return `200`
-- Next 10 return `429` with JSON response
+- First 50 responses → `200`
+- Next 10 responses → `429`
+
+### ✅ Test `/status` (Not Limited)
+
+```bash
+for i in {1..100}; do
+  curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8080/status
+done
+```
+
+- All responses → `200`
+
+### ✅ Confirm JSON Error Message (after limit)
+
+```bash
+curl http://localhost:8080/hello
+```
+
+Response:
+
+```json
+{
+  "status": 429,
+  "message": "Rate limit exceeded. Please try again after 10 seconds."
+}
+```
+
+### 🔁 Reset Window
+
+Wait for 10 seconds and try again:
+
+```bash
+curl http://localhost:8080/hello
+```
+
+Expected: `200 OK` (limit window reset)
 
 ---
 
@@ -127,4 +166,3 @@ Use `application-{profile}.yml` to change Redis hosts or limits.
 - Rate limit per API key or user
 - Limit different paths with different values
 - Add Prometheus/Grafana metrics
-
