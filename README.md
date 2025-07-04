@@ -29,13 +29,13 @@ This application provides **rate limiting for selected API endpoints** using Red
 | Request Limit   | 50 requests               |
 | Time Window     | 10 seconds                |
 | Status Code     | 429                       |
-| Response Format | JSON                      |
+| Response Format | Plain Text (not JSON)     |
 | Applied To      | `/hello`, `/data` only    |
 
 ## 📁 Project Structure
 
 ```
-RateLimiterRedisApp/
+RateLimit/
 ├── pom.xml
 ├── README.md
 └── src/
@@ -44,8 +44,7 @@ RateLimiterRedisApp/
         │   ├── Application.java
         │   ├── controller/HelloController.java
         │   ├── filter/RateLimitFilter.java
-        │   ├── limiter/RedisRateLimiter.java
-        │   └── model/RateLimitErrorResponse.java
+        │   └── limiter/RedisRateLimiter.java
         └── resources/
             └── application.yml
 ```
@@ -57,17 +56,6 @@ Only the following endpoints are protected by Redis rate limiting:
 - `/data`
 
 Endpoints like `/status` and `/health` are excluded.
-
-## 📦 JSON Error Response
-
-When limit is exceeded:
-
-```json
-{
-  "status": 429,
-  "message": "Rate limit exceeded. Please try again after 10 seconds."
-}
-```
 
 ---
 
@@ -94,12 +82,32 @@ mvn spring-boot:run
 
 ```bash
 for i in {1..60}; do
-  curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8080/hello
+  echo -n "$i: "
+  curl -s http://localhost:8080/hello
 done
 ```
 
-- First 50 responses → `200`
-- Next 10 responses → `429`
+**Expected Output:**
+
+```
+1: Hello endpoint
+...
+50: Hello endpoint
+51: Rate limit exceeded. Please try again after 10 seconds.
+...
+60: Rate limit exceeded. Please try again after 10 seconds.
+```
+
+### ✅ Test `/data` (Rate Limited)
+
+```bash
+for i in {1..60}; do
+  echo -n "$i: "
+  curl -s http://localhost:8080/data
+done
+```
+
+Same output pattern as `/hello`.
 
 ### ✅ Test `/status` (Not Limited)
 
@@ -109,32 +117,7 @@ for i in {1..100}; do
 done
 ```
 
-- All responses → `200`
-
-### ✅ Confirm JSON Error Message (after limit)
-
-```bash
-curl http://localhost:8080/hello
-```
-
-Response:
-
-```json
-{
-  "status": 429,
-  "message": "Rate limit exceeded. Please try again after 10 seconds."
-}
-```
-
-### 🔁 Reset Window
-
-Wait for 10 seconds and try again:
-
-```bash
-curl http://localhost:8080/hello
-```
-
-Expected: `200 OK` (limit window reset)
+**Expected:** All 100 responses → `200`
 
 ---
 
@@ -145,10 +128,6 @@ Expected: `200 OK` (limit window reset)
 | **TST**     | Use low limits to validate behavior |
 | **ACC**     | Simulate production load, use Redis service |
 | **PRD**     | Use Redis HA (Sentinel or Cluster), adjust limits as needed |
-
-### ✅ Profile-Based Config (Optional)
-
-Use `application-{profile}.yml` to change Redis hosts or limits.
 
 ---
 
