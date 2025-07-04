@@ -4,14 +4,14 @@ A Spring Boot application implementing efficient rate limiting using Redis witho
 
 ## 📌 Description
 
-This application provides rate limiting based on IP and API endpoint using Redis. It’s designed to help prevent abuse, protect backend services, and fairly distribute traffic.
+This application provides **rate limiting for selected API endpoints** using Redis. It’s designed to help prevent abuse, protect backend services, and ensure fair usage.
 
 ## 🎯 Why Use This
 
-- Protect backend APIs from being overwhelmed by too many requests
-- Ensure fair usage across clients
-- Fully configurable and scalable
-- Lightweight, no third-party rate-limiting libraries needed
+- Protect sensitive or high-load endpoints from abuse
+- Apply limits only where needed
+- Works in distributed environments with Redis
+- Fully configurable, stateless, scalable
 
 ## 🔧 Technology Stack
 
@@ -28,7 +28,9 @@ This application provides rate limiting based on IP and API endpoint using Redis
 | Redis Key       | `rate-limit:{IP}:{path}` |
 | Request Limit   | 50 requests               |
 | Time Window     | 10 seconds                |
-| Action on Limit | HTTP 429 Too Many Requests |
+| Status Code     | 429                       |
+| Response Format | JSON                      |
+| Applied To      | `/hello`, `/data` only    |
 
 ## 📁 Project Structure
 
@@ -40,77 +42,89 @@ RateLimit/
     └── main/
         ├── java/com/nagam/example/ratelimiter/
         │   ├── Application.java
-        │   ├── config/RedisConfig.java
+        │   ├── config/
         │   ├── controller/HelloController.java
         │   ├── filter/RateLimitFilter.java
-        │   └── limiter/RedisRateLimiter.java
+        │   ├── limiter/RedisRateLimiter.java
+        │   └── model/RateLimitErrorResponse.java
         └── resources/
             └── application.yml
 ```
 
+## 🔍 Rate Limited Endpoints
+
+Only the following endpoints are protected by Redis rate limiting:
+- `/hello`
+- `/data`
+
+Endpoints like `/status` and `/health` are excluded.
+
+## 📦 JSON Error Response
+
+When limit is exceeded:
+
+```json
+{
+  "status": 429,
+  "message": "Rate limit exceeded. Please try again after 10 seconds."
+}
+```
+
 ## 🚀 Running the Application
 
-### 1. Start Redis locally
+### 1. Start Redis
 
 ```bash
 docker run -p 6379:6379 redis
 ```
 
-### 2. Start Spring Boot App
+### 2. Start the Spring Boot app
 
 ```bash
 mvn clean install
 mvn spring-boot:run
 ```
 
-### 3. Test the API
+### 3. Test the Rate Limiting
+
+Send 60 requests to `/hello`:
 
 ```bash
-curl http://localhost:8080/hello
+for i in {1..60}; do curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8080/hello; done
 ```
 
-Send 50+ requests within 10 seconds to see rate limiting kick in.
+Expected:
+- First 50 return `200`
+- Next 10 return `429` with JSON response
 
 ---
 
-## 🧪 Usage in TST, ACC, PRD Environments
+## 🧪 TST / ACC / PRD Environment Support
 
 | Environment | Notes |
 |-------------|-------|
-| **TST** (Test) | Use lower limits like 10 requests/10s to validate behavior |
-| **ACC** (Acceptance) | Simulate production load with pre-production Redis |
-| **PRD** (Production) | Run with proper Redis HA setup (cluster/sentinel) and scaling configurations |
+| **TST**     | Use low limits to validate behavior |
+| **ACC**     | Simulate production load, use Redis service |
+| **PRD**     | Use Redis HA (Sentinel or Cluster), adjust limits as needed |
 
-### ✅ Configure via Spring Profiles
+### ✅ Profile-Based Config (Optional)
 
-Use `application-{profile}.yml` to define different limits or Redis configs per environment.
-
-Example:
-```yaml
-# application-prod.yml
-spring:
-  redis:
-    host: redis-prd.mycompany.com
-    port: 6379
-```
+Use `application-{profile}.yml` to change Redis hosts or limits.
 
 ---
 
-## ⚙️ Scalability & Deployment
+## ⚙️ Scalability & Production Use
 
-✅ This implementation is:
-- Stateless (uses Redis as central storage)
-- Horizontally scalable (can run across multiple app pods)
-- Works in Docker/Kubernetes/cloud
-- Safe for distributed systems
-
-Use Redis Sentinel or Cluster for HA production deployments.
+- Stateless (uses Redis)
+- Horizontal scaling supported
+- Works in Docker/Kubernetes
+- HA-ready with Redis Sentinel/Cluster
 
 ---
 
-## 📈 Future Enhancements (Optional)
+## 📈 Future Enhancements
 
-- Per-user or token-based limits
-- Role-based request policies
-- Admin UI for live usage stats
-- Prometheus/Grafana metrics
+- Rate limit per API key or user
+- Limit different paths with different values
+- Add Prometheus/Grafana metrics
+

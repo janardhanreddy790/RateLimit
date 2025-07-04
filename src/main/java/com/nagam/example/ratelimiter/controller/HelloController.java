@@ -8,6 +8,21 @@ public class HelloController {
 
     @GetMapping("/hello")
     public String hello() {
-        return "Hello from Redis-backed rate limiter!";
+        return "Hello endpoint";
+    }
+
+    @GetMapping("/status")
+    public String status() {
+        return "Status endpoint";
+    }
+
+    @GetMapping("/health")
+    public String health() {
+        return "Health check endpoint";
+    }
+
+    @GetMapping("/data")
+    public String data() {
+        return "Data endpoint";
     }
 }
